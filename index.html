@@ -439,7 +439,7 @@ async function processImage(file) {
     sb.style.display='flex'; sb.className='status-bar loading';
     document.getElementById('statusText').textContent='Se extrag datele...';
     try {
-      const res = await fetch('/.netlify/functions/claude', {
+      const res = await fetch('/api/claude', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ apiKey, mime: file.type, base64: b64 })
@@ -543,7 +543,7 @@ async function saveRecord() {
   const sheetsUrl = document.getElementById('sheetsUrl').value.trim() || (JSON.parse(localStorage.getItem('stockSettings')||'{}').sheetsUrl||'');
   if (sheetsUrl) {
     try {
-      await fetch('/.netlify/functions/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...record,action:existing?'update':'insert',sheetsUrl})});
+      await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...record,action:existing?'update':'insert',sheetsUrl})});
     } catch(_){}
   }
   btn.disabled=false; btn.textContent='↗ Salvează în stoc';
