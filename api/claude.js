@@ -1,32 +1,29 @@
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  };
-
   try {
-    const body = JSON.parse(event.body);
+    const body = req.body;
 
     // Sheets save request
     if (body.sheetsUrl) {
       const { sheetsUrl, ...record } = body;
-      const res = await fetch(sheetsUrl, {
+      const response = await fetch(sheetsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(record),
         redirect: 'follow'
       });
-      const text = await res.text();
-      return { statusCode: 200, headers: corsHeaders, body: text };
+      const text = await response.text();
+      return res.status(200).json({ status: 'ok', response: text });
     }
 
     // Claude AI request
     const { apiKey, mime, base64 } = body;
-
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -46,11 +43,10 @@ exports.handler = async (event) => {
         }]
       })
     });
-
     const data = await response.json();
-    return { statusCode: 200, headers: corsHeaders, body: JSON.stringify(data) };
+    return res.status(200).json(data);
 
   } catch (err) {
-    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
+    return res.status(500).json({ error: err.message });
   }
-};
+}
