@@ -433,8 +433,22 @@ async function processImage(file) {
   if (!apiKey) { showToast('Adaugă API Key în Setări', 'error'); showTab('settings'); return; }
   const reader = new FileReader();
   reader.onload = async (ev) => {
-    const b64 = ev.target.result.split(',')[1];
-    document.getElementById('uploadZone').innerHTML = `<img src="${ev.target.result}" class="preview-img"/><p style="font-size:11px;color:var(--text2);font-family:var(--mono)">Analiză AI...</p>`;
+    // Compress image before sending
+    const img = new Image();
+    img.onload = async () => {
+      const canvas = document.createElement('canvas');
+      const maxSize = 1024;
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      const b64 = compressed.split(',')[1];
+
+      document.getElementById('uploadZone').innerHTML = `<img src="${compressed}" class="preview-img"/><p style="font-size:11px;color:var(--text2);font-family:var(--mono)">Analiză AI...</p>`;
     const sb = document.getElementById('statusBar');
     sb.style.display='flex'; sb.className='status-bar loading';
     document.getElementById('statusText').textContent='Se extrag datele...';
@@ -442,7 +456,7 @@ async function processImage(file) {
       const res = await fetch('/api/claude', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ apiKey, mime: file.type, base64: b64 })
+        body: JSON.stringify({ apiKey, mime: 'image/jpeg', base64: b64 })
       });
       const data = await res.json();
       if (data.error) throw new Error(JSON.stringify(data.error));
@@ -456,6 +470,8 @@ async function processImage(file) {
       document.getElementById('statusText').textContent='✗ ' + (err.message || 'Eroare AI') + ' — completează manual';
       document.getElementById('formSection').style.display='block';
     }
+    };
+    img.src = ev.target.result;
   };
   reader.readAsDataURL(file);
 }
