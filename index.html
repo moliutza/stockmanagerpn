@@ -558,8 +558,16 @@ async function saveRecord() {
   const pn = document.getElementById('f_partNumber').value.trim();
   if (!pn) { showToast('Part Number obligatoriu', 'error'); return; }
   const ms = document.getElementById('f_ms').value.trim();
-  const existing = findByPN(pn);
-  const position = existing ? existing.position : getNextPosition();
+  
+  let existing, position;
+  if (editingPosition !== null) {
+    // Editing existing record by position
+    existing = records.find(r => r.position === editingPosition);
+    position = editingPosition;
+  } else {
+    existing = findByPN(pn);
+    position = existing ? existing.position : getNextPosition();
+  }
   const record = {
     position, partNumber:pn,
     descriere:document.getElementById('f_descriere').value.trim(),
@@ -593,6 +601,7 @@ async function saveRecord() {
 
 // ── RESET ─────────────────────────────────────────────
 function resetForm() {
+  editingPosition = null;
   document.getElementById('uploadZone').innerHTML=`
     <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)"/>
     <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
@@ -693,9 +702,12 @@ function renderRecords() {
 }
 
 // ── EDIT & DELETE ─────────────────────────────────────
+let editingPosition = null;
+
 function editRecord(position) {
   const r = records.find(rec => rec.position === position);
   if (!r) return;
+  editingPosition = position;
   showTab('scan');
   document.getElementById('statusBar').style.display='none';
   document.getElementById('msPreview').style.display='none';
@@ -706,8 +718,14 @@ function editRecord(position) {
   document.getElementById('f_lot').value = r.lot||'';
   document.getElementById('f_ms').value = r.ms||'';
   document.getElementById('f_data').value = r.dataEticheta||'';
+  
+  // Show editing notice
+  const notice = document.getElementById('existingNotice');
+  notice.style.display='flex';
+  notice.className='status-bar warn';
+  document.getElementById('existingText').textContent=`✎ Editezi poziția ${position} — modifică și salvează`;
+  
   updateMSPreview();
-  checkExistingPN();
   showToast(`Editezi poziția ${position}`, 'success');
 }
 
