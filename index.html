@@ -188,7 +188,10 @@
   <div id="formSection" style="display:none">
     <div class="form-group">
       <label>Part Number <span class="ai-badge">AI</span></label>
-      <input type="text" id="f_partNumber" placeholder="ex: FLU4022 102 00158-LF" oninput="onPNInput()" />
+      <div style="display:flex;gap:8px">
+        <input type="text" id="f_partNumber" placeholder="ex: FLU4022 102 00158-LF" oninput="onPNInput()" style="flex:1" />
+        <button id="unlockPNBtn" onclick="unlockPN()" style="display:none;padding:0 12px;border-radius:8px;font-family:var(--mono);font-size:11px;cursor:pointer;background:rgba(255,184,0,0.1);border:1px solid rgba(255,184,0,0.3);color:var(--warn);white-space:nowrap">✎ Edit</button>
+      </div>
     </div>
     <div class="form-group">
       <label>Descriere <span class="ai-badge">AI</span></label>
@@ -322,10 +325,22 @@ function getExpiryStatus(r) {
   if (getMSLevel(r.ms) !== 'high') return null;
   const hours = parseExpiryHours(r.ms);
   if (!hours) return null;
-  const start = new Date(r.registeredAt);
-  const expiry = new Date(start.getTime() + hours * 3600000);
+  
+  // Use label date if available, otherwise registration date
+  let startDate;
+  if (r.dataEticheta) {
+    const parts = r.dataEticheta.split('.');
+    if (parts.length === 3) {
+      startDate = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+    }
+  }
+  if (!startDate || isNaN(startDate.getTime())) {
+    startDate = new Date(r.registeredAt);
+  }
+  
+  const expiry = new Date(startDate.getTime() + hours * 3600000);
   const now = new Date();
-  const totalMs = expiry - start;
+  const totalMs = expiry - startDate;
   const remainMs = expiry - now;
   const pct = Math.max(0, Math.min(100, (remainMs / totalMs) * 100));
   const remainHours = remainMs / 3600000;
@@ -599,9 +614,20 @@ async function saveRecord() {
   renderAlerts();
 }
 
+function unlockPN() {
+  document.getElementById('f_partNumber').readOnly = false;
+  document.getElementById('f_partNumber').style.opacity = '1';
+  document.getElementById('unlockPNBtn').style.display = 'none';
+  document.getElementById('f_partNumber').focus();
+}
+
 // ── RESET ─────────────────────────────────────────────
 function resetForm() {
   editingPosition = null;
+  document.getElementById('f_partNumber').readOnly = false;
+  document.getElementById('f_partNumber').style.opacity = '1';
+  document.getElementById('saveBtn').textContent = '↗ Salvează în stoc';
+  document.getElementById('unlockPNBtn').style.display = 'none';
   document.getElementById('uploadZone').innerHTML=`
     <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)"/>
     <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
@@ -724,6 +750,12 @@ function editRecord(position) {
   notice.style.display='flex';
   notice.className='status-bar warn';
   document.getElementById('existingText').textContent=`✎ Editezi poziția ${position} — modifică și salvează`;
+  
+  // Lock PN field during edit
+  document.getElementById('f_partNumber').readOnly = true;
+  document.getElementById('f_partNumber').style.opacity = '0.6';
+  document.getElementById('unlockPNBtn').style.display = 'block';
+  document.getElementById('saveBtn').textContent = '✓ Salvează modificările';
   
   updateMSPreview();
   showToast(`Editezi poziția ${position}`, 'success');
