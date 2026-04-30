@@ -12,9 +12,9 @@ export default async function handler(req, res) {
     // Sheets save request
     if (body.sheetsUrl) {
       const { sheetsUrl, ...record } = body;
-      // Send as URL parameter to avoid redirect body loss
+      const fullUrl = sheetsUrl.startsWith('http') ? sheetsUrl : 'https://' + sheetsUrl;
       const encoded = encodeURIComponent(JSON.stringify(record));
-      const urlWithData = `${sheetsUrl}?data=${encoded}`;
+      const urlWithData = `${fullUrl}?data=${encoded}`;
       const response = await fetch(urlWithData, { method: 'GET' });
       const text = await response.text();
       return res.status(200).json({ status: 'ok', response: text });
