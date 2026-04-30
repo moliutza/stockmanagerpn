@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stock Manager</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
     :root {
@@ -265,17 +267,18 @@
   </div>
 
   <div class="settings-card">
-    <h3>// CONFIGURARE GOOGLE SHEETS</h3>
-    <div class="step"><div class="step-num">1</div><div class="step-content"><h4>Creează un Google Sheet nou</h4><p>Deschide Google Sheets și creează un document nou.</p></div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-content"><h4>Deschide Apps Script</h4><p>Meniu: Extensii → Apps Script</p></div></div>
-    <div class="step"><div class="step-num">3</div><div class="step-content"><h4>Lipește codul de mai jos</h4><p>Șterge codul existent și lipește scriptul copiat.</p></div></div>
-    <div class="step"><div class="step-num">4</div><div class="step-content"><h4>Publică ca Web App</h4><p>Implementare → Implementare nouă → Aplicație web. Acces: Oricine. Copiază URL-ul generat.</p></div></div>
-    <div class="step"><div class="step-num">5</div><div class="step-content"><h4>Lipește URL-ul în câmpul de mai sus</h4></div></div>
-    <button class="btn btn-secondary" onclick="copyScript()" style="margin-top:14px">⎘ Copiază codul Apps Script</button>
+    <h3>// GOOGLE DRIVE SYNC</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Sincronizează datele între toate dispozitivele via Google Drive.</p>
+    <div id="driveStatus" class="settings-status">
+      <div class="dot" id="driveDot" style="background:var(--warn)"></div>
+      <span id="driveStatusText" style="color:var(--warn)">Neconectat</span>
+    </div>
+    <button class="btn btn-secondary" id="driveLoginBtn" onclick="driveLogin()" style="margin-top:12px">☁ Conectează Google Drive</button>
+    <button class="btn btn-secondary" id="driveSyncBtn" onclick="driveSync()" style="margin-top:8px;display:none">↕ Sincronizează acum</button>
   </div>
 
   <div class="settings-card">
-    <h3>// EXPORT</h3>
+    <h3>// EXPORT LOCAL</h3>
     <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Datele sunt salvate și local în browser ca backup.</p>
     <button class="btn btn-secondary" onclick="exportCSV()">↓ Export CSV</button>
   </div>
@@ -554,6 +557,7 @@ async function saveRecord() {
     records.sort((a,b)=>a.position-b.position);
   }
   localStorage.setItem('stockRecords', JSON.stringify(records));
+  driveSaveRecord();
   const btn=document.getElementById('saveBtn');
   btn.disabled=true; btn.textContent='⏳ Se salvează...';
   const sheetsUrl = document.getElementById('sheetsUrl').value.trim() || (JSON.parse(localStorage.getItem('stockSettings')||'{}').sheetsUrl||'');
@@ -777,6 +781,112 @@ function parseHours(ms) {
 function ok() { return ContentService.createTextOutput(JSON.stringify({status:'ok'})).setMimeType(ContentService.MimeType.JSON); }
 function doGet() { return ok(); }`;
   navigator.clipboard.writeText(s).then(()=>showToast('✓ Cod copiat','success')).catch(()=>showToast('Eroare copiere','error'));
+}
+
+// ── GOOGLE DRIVE ──────────────────────────────────────
+const GAPI_CLIENT_ID = '831867550168-4c4um076ca9ufie8232pvsbh212i9cjs.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const BACKUP_FILE = 'stock_backup.json';
+let driveToken = null;
+let driveFileId = null;
+
+function driveLogin() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GAPI_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { showToast('Eroare login Google', 'error'); return; }
+      driveToken = resp.access_token;
+      localStorage.setItem('driveToken', driveToken);
+      updateDriveStatus(true);
+      await driveSync();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function updateDriveStatus(ok) {
+  const dot = document.getElementById('driveDot');
+  const text = document.getElementById('driveStatusText');
+  const syncBtn = document.getElementById('driveSyncBtn');
+  dot.style.background = ok ? 'var(--accent)' : 'var(--warn)';
+  dot.style.boxShadow = ok ? '0 0 6px var(--accent)' : 'none';
+  text.style.color = ok ? 'var(--accent)' : 'var(--warn)';
+  text.textContent = ok ? 'Conectat ✓' : 'Neconectat';
+  syncBtn.style.display = ok ? 'block' : 'none';
+}
+
+async function driveSaveRecord() {
+  if (!driveToken) return;
+  try {
+    const data = JSON.stringify(records);
+    if (driveFileId) {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
+        body: data
+      });
+    } else {
+      await driveSync();
+    }
+  } catch(e) {}
+}
+
+async function driveSync() {
+  if (!driveToken) { showToast('Conectează mai întâi Google Drive', 'error'); return; }
+  showToast('↕ Sincronizare...', 'success');
+  try {
+    // Find existing file
+    const search = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${BACKUP_FILE}'`, {
+      headers: { 'Authorization': `Bearer ${driveToken}` }
+    });
+    const searchData = await search.json();
+    
+    if (searchData.files && searchData.files.length > 0) {
+      driveFileId = searchData.files[0].id;
+      // Download existing data
+      const dl = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+        headers: { 'Authorization': `Bearer ${driveToken}` }
+      });
+      const remoteRecords = await dl.json();
+      
+      // Merge: keep most recent per position
+      const merged = {};
+      for (const r of [...remoteRecords, ...records]) {
+        if (!merged[r.position] || new Date(r.registeredAt) > new Date(merged[r.position].registeredAt)) {
+          merged[r.position] = r;
+        }
+      }
+      records = Object.values(merged).sort((a,b) => a.position - b.position);
+      localStorage.setItem('stockRecords', JSON.stringify(records));
+      
+      // Upload merged
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(records)
+      });
+    } else {
+      // Create new file
+      const meta = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: BACKUP_FILE, parents: ['appDataFolder'] })
+      });
+      const metaData = await meta.json();
+      driveFileId = metaData.id;
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${driveToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(records)
+      });
+    }
+    renderRecords();
+    renderAlerts();
+    showToast('✓ Sincronizare completă', 'success');
+  } catch(err) {
+    showToast('Eroare sincronizare: ' + err.message, 'error');
+  }
 }
 
 // ── TOAST ─────────────────────────────────────────────
