@@ -12,29 +12,11 @@ export default async function handler(req, res) {
     // Sheets save request
     if (body.sheetsUrl) {
       const { sheetsUrl, ...record } = body;
-      const recordStr = JSON.stringify(record);
-      
-      // First request - get redirect URL
-      const first = await fetch(sheetsUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: recordStr,
-        redirect: 'manual'
-      });
-      
-      // Follow redirect manually if needed
-      if (first.status === 301 || first.status === 302 || first.status === 307 || first.status === 308) {
-        const redirectUrl = first.headers.get('location');
-        const second = await fetch(redirectUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: recordStr
-        });
-        const text = await second.text();
-        return res.status(200).json({ status: 'ok', response: text });
-      }
-      
-      const text = await first.text();
+      // Send as URL parameter to avoid redirect body loss
+      const encoded = encodeURIComponent(JSON.stringify(record));
+      const urlWithData = `${sheetsUrl}?data=${encoded}`;
+      const response = await fetch(urlWithData, { method: 'GET' });
+      const text = await response.text();
       return res.status(200).json({ status: 'ok', response: text });
     }
 
