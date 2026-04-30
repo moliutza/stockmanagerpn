@@ -364,6 +364,25 @@ window.onload = () => {
   if (settings.claudeKey) { document.getElementById('claudeKey').value = settings.claudeKey; updateDot('claude', true); }
   if (settings.sheetsUrl) { document.getElementById('sheetsUrl').value = settings.sheetsUrl; updateDot('sheets', true); }
   renderAlerts();
+  // Auto-reconnect Drive silently if was connected before
+  if (localStorage.getItem('driveWasConnected')) {
+    setTimeout(() => {
+      try {
+        const client = google.accounts.oauth2.initTokenClient({
+          client_id: GAPI_CLIENT_ID,
+          scope: DRIVE_SCOPE,
+          prompt: '',
+          callback: async (resp) => {
+            if (!resp.error) {
+              driveToken = resp.access_token;
+              updateDriveStatus(true);
+            }
+          }
+        });
+        client.requestAccessToken({ prompt: '' });
+      } catch(e) {}
+    }, 1000);
+  }
 };
 
 // ── TABS ──────────────────────────────────────────────
@@ -798,6 +817,7 @@ function driveLogin() {
       if (resp.error) { showToast('Eroare login Google', 'error'); return; }
       driveToken = resp.access_token;
       localStorage.setItem('driveToken', driveToken);
+      localStorage.setItem('driveWasConnected', '1');
       updateDriveStatus(true);
       await driveSync();
     }
