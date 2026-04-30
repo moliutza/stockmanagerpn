@@ -820,6 +820,7 @@ function driveLogin() {
       localStorage.setItem('driveWasConnected', '1');
       updateDriveStatus(true);
       await driveSync();
+      await driveSync();
     }
   });
   client.requestAccessToken();
