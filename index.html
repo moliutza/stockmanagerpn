@@ -256,9 +256,10 @@
   <!-- SCAN -->
   <div id="tab-scan" class="container">
     <div id="alertsContainer"></div>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput" onchange="handleFile(event)" style="display:none" />
+    <input type="file" accept="image/*" id="galleryInput" onchange="handleFile(event)" style="display:none" />
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
-        <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+      <div class="upload-zone" style="flex:1;padding:20px 10px;cursor:pointer" onclick="document.getElementById('cameraInput').click()">
         <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
@@ -267,8 +268,7 @@
         </div>
         <p style="font-size:11px;font-weight:500">📷 Fotografiază</p>
       </div>
-      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
-        <input type="file" accept="image/*" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+      <div class="upload-zone" style="flex:1;padding:20px 10px;cursor:pointer" onclick="document.getElementById('galleryInput').click()">
         <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
@@ -277,7 +277,12 @@
         <p style="font-size:11px;font-weight:500">🖼 Galerie</p>
       </div>
     </div>
+          </svg>
+        </div>
+        <p style="font-size:11px;font-weight:500">📷 Fotografiază</p>
+      </div>
     <button class="btn btn-secondary" onclick="openManual()" style="margin-top:8px">✎ Adaugă manual</button>
+    <div id="previewZone" style="margin-top:8px"></div>
 
     <div id="statusBar" style="display:none" class="status-bar loading">
       <div class="spinner"></div>
@@ -711,7 +716,7 @@ async function processImage(file) {
       canvas.getContext('2d').drawImage(img,0,0,w,h);
       const compressed = canvas.toDataURL('image/jpeg',0.7);
       const b64 = compressed.split(',')[1];
-      const uploadZone = document.getElementById('uploadZone');
+      const uploadZone = document.getElementById('previewZone');
       if (uploadZone) {
         uploadZone.innerHTML = `<img src="${compressed}" class="preview-img"/><p style="font-size:11px;color:var(--text2);font-family:var(--mono)">Analiză AI...</p>`;
       }
@@ -905,21 +910,14 @@ async function deleteRecord(position) {
 function resetForm() {
   editingPosition = null;
   document.getElementById('uploadZone') && (document.getElementById('uploadZone').remove());
-  const uploadArea = document.createElement('div');
-  uploadArea.id = 'uploadZone';
-  uploadArea.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px">
-      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
-        <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
-        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-        <p style="font-size:11px;font-weight:500">📷 Fotografiază</p>
-      </div>
-      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
-        <input type="file" accept="image/*" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
-        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-        <p style="font-size:11px;font-weight:500">🖼 Galerie</p>
-      </div>
-    </div>`;
-  document.getElementById('tab-scan').insertBefore(uploadArea, document.getElementById('tab-scan').firstChild.nextSibling);
+  // Reset file inputs
+  const ci = document.getElementById('cameraInput');
+  const gi = document.getElementById('galleryInput');
+  if (ci) ci.value = '';
+  if (gi) gi.value = '';
+  // Show preview zone again
+  const previewZone = document.getElementById('previewZone');
+  if (previewZone) previewZone.innerHTML = '';
   document.getElementById('statusBar').style.display='none';
   document.getElementById('msPreview').style.display='none';
   document.getElementById('expiryPreview').style.display='none';
