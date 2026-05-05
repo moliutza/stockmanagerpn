@@ -669,8 +669,6 @@ function renderAlerts() {
 function handleFile(e) { const f=e.target.files[0]; if(f) processImage(f); }
 
 async function processImage(file) {
-  const apiKey = document.getElementById('claudeKey').value.trim() || settings.claudeKey;
-  if (!apiKey) { showToast('Adaugă API Key în Setări', 'error'); showTab('settings'); return; }
   const reader = new FileReader();
   reader.onload = async (ev) => {
     const img = new Image();
@@ -691,7 +689,7 @@ async function processImage(file) {
       sb.style.display='flex'; sb.className='status-bar loading';
       document.getElementById('statusText').textContent='Se extrag datele...';
       try {
-        const parsed = await api('analyzeImage', { apiKey, mime:'image/jpeg', base64:b64 });
+        const parsed = await api('analyzeImage', { mime:'image/jpeg', base64:b64 });
         if (parsed.error) throw new Error(parsed.error);
         setFormValues(parsed);
         sb.className='status-bar success';
@@ -779,7 +777,7 @@ async function checkExistingPN() {
   } else {
     const ms = document.getElementById('f_ms').value;
     const level = getMSLevel(ms);
-    const posResult = await api('getNextPosition', { msLevel: level });
+    const posResult = await api('getNextPosition', { msLevel: level, userId: currentUser.id });
     notice.className='status-bar success';
     txt.textContent=`PN nou — va primi poziția ${posResult.position}`;
   }
@@ -802,7 +800,7 @@ async function saveRecord() {
     if (existing) {
       position = existing.position;
     } else {
-      const posResult = await api('getNextPosition', { msLevel });
+      const posResult = await api('getNextPosition', { msLevel, userId: currentUser.id });
       position = posResult.position;
     }
   }
@@ -969,7 +967,14 @@ function renderRecords() {
   document.getElementById('recordsCount').textContent=filtered.length;
   const list=document.getElementById('recordsList');
   if (!filtered.length) { list.innerHTML=`<div class="empty-state"><div class="icon">▤</div><p>Nicio înregistrare.</p></div>`; return; }
-  list.innerHTML=filtered.map(r=>{
+  list.innerHTML=filtered.sort((a,b) => {
+    const aNum = parseInt(a.position.toString().replace('M',''));
+    const bNum = parseInt(b.position.toString().replace('M',''));
+    const aHigh = a.position.toString().startsWith('M');
+    const bHigh = b.position.toString().startsWith('M');
+    if (aHigh !== bHigh) return aHigh ? 1 : -1;
+    return aNum - bNum;
+  }).map(r=>{
     const st=getExpiryStatus(r);
     const level=getMSLevel(r.ms);
     const isHigh=r.position&&r.position.toString().startsWith('M');
@@ -1143,9 +1148,11 @@ async function deleteUser(userId, username) {
 // SETTINGS
 // ═══════════════════════════════════════════════════════
 function saveSettings() {
-  settings.claudeKey = document.getElementById('claudeKey').value.trim();
+  const key = document.getElementById('claudeKey').value.trim();
+  settings.claudeKey = key;
   localStorage.setItem('smSettings', JSON.stringify(settings));
-  updateDot('claude', !!settings.claudeKey);
+  updateDot('claude', !!key);
+  if (key) api('saveConfig', { key: 'claude_api_key', value: key });
 }
 function updateDot(w,ok) {
   const dot=document.getElementById(w+'Dot');
