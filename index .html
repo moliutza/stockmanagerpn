@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Manager v3</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #181c27; --surface2: #1e2333; --border: #2a3045;
+      --accent: #00e5a0; --accent2: #0099ff; --warn: #ffb800; --error: #ff4d6d;
+      --text: #e8eaf0; --text2: #8891aa; --low: #0099ff; --high: #ff6b35;
+      --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding-bottom: 80px; }
+
+    /* LOGIN */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; width: 100%; max-width: 380px; }
+    .login-logo { width: 48px; height: 48px; background: var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+    .login-logo svg { width: 26px; height: 26px; }
+    .login-card h1 { font-family: var(--mono); font-size: 18px; text-align: center; margin-bottom: 6px; }
+    .login-card p { font-size: 12px; color: var(--text2); text-align: center; margin-bottom: 24px; font-family: var(--mono); }
+    .login-error { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3); border-radius: 8px; padding: 10px 14px; font-family: var(--mono); font-size: 12px; color: var(--error); margin-bottom: 14px; }
+
+    /* HEADER */
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+    .logo { width: 30px; height: 30px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo svg { width: 16px; height: 16px; }
+    header h1 { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+    .user-badge { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .user-name { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+    .role-pill { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 4px; background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.2); color: var(--accent); }
+    .role-pill.admin { background: rgba(255,107,53,0.1); border-color: rgba(255,107,53,0.2); color: var(--high); }
+    .logout-btn { padding: 5px 10px; border-radius: 6px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: transparent; border: 1px solid var(--border); color: var(--text2); }
+
+    /* TABS */
+    .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 12px; overflow-x: auto; }
+    .tab { padding: 10px 12px; font-size: 11px; font-family: var(--mono); color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .container { padding: 14px; max-width: 600px; margin: 0 auto; }
+
+    /* ALERTS */
+    .alerts-banner { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+    .alerts-banner h3 { font-family: var(--mono); font-size: 11px; color: var(--error); margin-bottom: 8px; }
+    .alert-item { background: rgba(255,77,109,0.08); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; }
+    .alert-item:last-child { margin-bottom: 0; }
+    .alert-item .pn { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--error); }
+    .alert-item .pos { font-family: var(--mono); font-size: 11px; color: var(--warn); margin-top: 2px; }
+    .alert-item .msg { font-size: 11px; color: var(--text2); margin-top: 3px; }
+    .warn-banner { background: rgba(255,184,0,0.08); border: 1px solid rgba(255,184,0,0.25); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+    .warn-banner h3 { font-family: var(--mono); font-size: 11px; color: var(--warn); margin-bottom: 8px; }
+    .warn-item { background: rgba(255,184,0,0.06); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; }
+    .warn-item:last-child { margin-bottom: 0; }
+    .warn-item .pn { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--warn); }
+    .warn-item .msg { font-size: 11px; color: var(--text2); margin-top: 3px; font-family: var(--mono); }
+
+    /* UPLOAD */
+    .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); position: relative; overflow: hidden; }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(0,229,160,0.04); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { width: 44px; height: 44px; background: rgba(0,229,160,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+    .upload-icon svg { width: 20px; height: 20px; color: var(--accent); }
+    .upload-zone h3 { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    .upload-zone p { font-size: 11px; color: var(--text2); }
+    .preview-img { width: 100%; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); max-height: 160px; object-fit: cover; }
+
+    /* STATUS */
+    .status-bar { display: flex; align-items: center; gap: 8px; padding: 10px 13px; border-radius: 8px; margin-bottom: 12px; font-size: 11px; font-family: var(--mono); }
+    .status-bar.loading { background: rgba(0,153,255,0.1); border: 1px solid rgba(0,153,255,0.2); color: var(--accent2); }
+    .status-bar.success { background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.2); color: var(--accent); }
+    .status-bar.error { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.2); color: var(--error); }
+    .status-bar.warn { background: rgba(255,184,0,0.1); border: 1px solid rgba(255,184,0,0.25); color: var(--warn); }
+    .spinner { width: 13px; height: 13px; border: 2px solid rgba(0,153,255,0.3); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* MS PREVIEW */
+    .ms-preview { display: flex; align-items: center; gap: 8px; padding: 9px 13px; border-radius: 8px; margin-bottom: 12px; font-family: var(--mono); font-size: 11px; }
+    .ms-preview.low { background: rgba(0,153,255,0.1); border: 1px solid rgba(0,153,255,0.2); color: var(--low); }
+    .ms-preview.high { background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); color: var(--high); }
+    .ms-badge { padding: 2px 9px; border-radius: 4px; font-weight: 600; font-size: 10px; flex-shrink: 0; }
+    .ms-preview.low .ms-badge { background: rgba(0,153,255,0.2); }
+    .ms-preview.high .ms-badge { background: rgba(255,107,53,0.2); }
+    .expiry-preview { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 12px; }
+    .expiry-preview span { color: var(--accent); }
+
+    /* FORM */
+    .form-group { margin-bottom: 11px; }
+    .form-group label { display: block; font-size: 10px; font-family: var(--mono); color: var(--text2); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
+    .ai-badge { display: inline-block; background: rgba(0,229,160,0.15); color: var(--accent); font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+    .form-group input, .form-group select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+    .form-group input.ai-filled { border-color: rgba(0,229,160,0.35); background: rgba(0,229,160,0.03); }
+    .form-group input::placeholder { color: var(--text2); opacity: 0.5; }
+    .form-group input[readonly] { opacity: 0.6; cursor: not-allowed; }
+    .input-row { display: flex; gap: 8px; }
+    .input-row input { flex: 1; }
+    .unlock-btn { padding: 0 11px; border-radius: 8px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: rgba(255,184,0,0.1); border: 1px solid rgba(255,184,0,0.3); color: var(--warn); white-space: nowrap; flex-shrink: 0; }
+    .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+    /* BUTTONS */
+    .btn { width: 100%; padding: 12px; border-radius: 8px; font-family: var(--mono); font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: var(--accent); color: #0f1117; }
+    .btn-primary:hover { background: #00ffb3; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: var(--text2); border: 1px solid var(--border); margin-top: 7px; }
+    .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+    .btn-danger { background: rgba(255,77,109,0.1); color: var(--error); border: 1px solid rgba(255,77,109,0.3); margin-top: 7px; }
+
+    /* SEARCH */
+    .search-box { position: relative; margin-bottom: 14px; }
+    .search-box input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px 11px 40px; color: var(--text); font-family: var(--mono); font-size: 13px; outline: none; transition: border-color 0.2s; }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text2); pointer-events: none; }
+    .search-result { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 9px; transition: border-color 0.2s; }
+    .search-result:hover { border-color: rgba(0,229,160,0.3); }
+    .pos-big { font-family: var(--mono); font-size: 36px; font-weight: 600; color: var(--accent); line-height: 1; }
+    .pos-big.high-pos { color: var(--high); }
+
+    /* RECORDS */
+    .records-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .records-header h2 { font-size: 12px; font-family: var(--mono); color: var(--text2); }
+    .records-count { font-family: var(--mono); font-size: 10px; background: rgba(0,229,160,0.1); color: var(--accent); padding: 2px 9px; border-radius: 20px; }
+    .filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-btn { padding: 4px 11px; border-radius: 20px; font-family: var(--mono); font-size: 10px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text2); transition: all 0.2s; }
+    .filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
+    .filter-btn.low-f.active { border-color: var(--low); color: var(--low); background: rgba(0,153,255,0.08); }
+    .filter-btn.high-f.active { border-color: var(--high); color: var(--high); background: rgba(255,107,53,0.08); }
+
+    .record-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+    .record-card.expired { border-color: rgba(255,77,109,0.35); background: rgba(255,77,109,0.03); }
+    .record-card.expiring { border-color: rgba(255,184,0,0.35); background: rgba(255,184,0,0.03); }
+    .record-top { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+    .record-pos { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); min-width: 42px; }
+    .record-pos.high-pos { color: var(--high); }
+    .record-pn { font-family: var(--mono); font-size: 12px; font-weight: 600; flex: 1; }
+    .record-desc { font-size: 11px; color: var(--text2); margin-bottom: 7px; padding-left: 51px; }
+    .record-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+    .tag { font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+    .tag span { color: var(--text); }
+    .record-owner { font-family: var(--mono); font-size: 9px; color: var(--text2); margin-bottom: 5px; padding-left: 51px; }
+    .ms-pill { padding: 2px 7px; border-radius: 4px; font-family: var(--mono); font-size: 9px; font-weight: 600; flex-shrink: 0; }
+    .ms-pill.low { background: rgba(0,153,255,0.15); color: var(--low); border: 1px solid rgba(0,153,255,0.2); }
+    .ms-pill.high { background: rgba(255,107,53,0.15); color: var(--high); border: 1px solid rgba(255,107,53,0.2); }
+    .expiry-bar-wrap { margin-top: 7px; }
+    .expiry-label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--text2); margin-bottom: 3px; }
+    .expiry-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .expiry-fill { height: 100%; border-radius: 2px; }
+    .expiry-fill.green { background: var(--accent); }
+    .expiry-fill.yellow { background: var(--warn); }
+    .expiry-fill.red { background: var(--error); }
+    .expiry-status.green { color: var(--accent); }
+    .expiry-status.yellow { color: var(--warn); }
+    .expiry-status.red { color: var(--error); }
+    .record-actions { display: flex; gap: 7px; margin-top: 9px; }
+    .btn-edit { flex: 1; padding: 6px; border-radius: 6px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3); color: var(--accent); }
+    .btn-del { flex: 1; padding: 6px; border-radius: 6px; font-family: var(--mono); font-size: 10px; cursor: pointer; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3); color: var(--error); }
+
+    /* ADMIN */
+    .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; margin-bottom: 8px; }
+    .admin-card .user-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .admin-card .user-info { flex: 1; }
+    .admin-card .uname { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+    .admin-card .ufull { font-size: 11px; color: var(--text2); }
+    .admin-actions { display: flex; gap: 7px; }
+    .btn-sm { padding: 5px 11px; border-radius: 6px; font-family: var(--mono); font-size: 10px; cursor: pointer; }
+    .btn-sm.edit { background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3); color: var(--accent); }
+    .btn-sm.del { background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.3); color: var(--error); }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; }
+    .modal h3 { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: 16px; }
+
+    /* SETTINGS */
+    .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .settings-card h3 { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 12px; letter-spacing: 0.5px; }
+    .settings-status { display: flex; align-items: center; gap: 7px; font-size: 10px; font-family: var(--mono); margin-top: 9px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    /* REPORT */
+    .report-section { margin-bottom: 20px; }
+    .report-section h3 { font-family: var(--mono); font-size: 12px; margin-bottom: 10px; }
+    .report-section h3.expired { color: var(--error); }
+    .report-section h3.valid { color: var(--accent); }
+    .report-row { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: var(--surface); border-radius: 7px; margin-bottom: 5px; font-family: var(--mono); font-size: 10px; }
+    .report-pos { font-size: 14px; font-weight: 600; min-width: 35px; }
+    .report-pos.high-pos { color: var(--high); }
+    .report-pos.low-pos { color: var(--accent); }
+
+    .empty-state { text-align: center; padding: 40px 16px; color: var(--text2); }
+    .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+    .empty-state p { font-size: 11px; font-family: var(--mono); }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-family: var(--mono); font-size: 11px; transition: transform 0.3s; z-index: 999; white-space: nowrap; max-width: 90vw; text-align: center; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: rgba(0,229,160,0.4); color: var(--accent); }
+    .toast.error { border-color: rgba(255,77,109,0.4); color: var(--error); }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.5">
+          <rect x="3" y="3" width="18" height="18" rx="3"/>
+          <path d="M7 8h10M7 12h6M7 16h8"/>
+        </svg>
+      </div>
+      <h1>STOCK MANAGER</h1>
+      <p>v3.0 — MSD Tracking System</p>
+      <div id="loginError" class="login-error" style="display:none"></div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Parolă</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">→ Autentificare</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appPage" style="display:none">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.5">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <path d="M7 8h10M7 12h6M7 16h8"/>
+      </svg>
+    </div>
+    <h1>STOCK MANAGER</h1>
+    <div class="user-badge">
+      <span class="user-name" id="headerUser"></span>
+      <span class="role-pill" id="headerRole"></span>
+      <button class="logout-btn" onclick="doLogout()">↩</button>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabsBar">
+    <button class="tab active" onclick="showTab('scan')">⬡ Scanare</button>
+    <button class="tab" onclick="showTab('search')">⌕ Căutare</button>
+    <button class="tab" onclick="showTab('records')">▤ Stoc</button>
+    <button class="tab" onclick="showTab('report')">▦ Raport</button>
+    <button class="tab admin-tab" onclick="showTab('admin')" style="display:none">⚙ Admin</button>
+    <button class="tab" onclick="showTab('settings')">● Setări</button>
+  </div>
+
+  <!-- SCAN -->
+  <div id="tab-scan" class="container">
+    <div id="alertsContainer"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
+        <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+        <p style="font-size:11px;font-weight:500">📷 Fotografiază</p>
+      </div>
+      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
+        <input type="file" accept="image/*" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <p style="font-size:11px;font-weight:500">🖼 Galerie</p>
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="openManual()" style="margin-top:8px">✎ Adaugă manual</button>
+
+    <div id="statusBar" style="display:none" class="status-bar loading">
+      <div class="spinner"></div>
+      <span id="statusText">Se procesează...</span>
+    </div>
+    <div id="msPreview" style="display:none" class="ms-preview low">
+      <span class="ms-badge" id="msBadgeText">LOW MSD</span>
+      <span id="msPreviewText"></span>
+    </div>
+    <div id="expiryPreview" style="display:none" class="expiry-preview">
+      Data expirare: <span id="expiryPreviewDate"></span>
+    </div>
+    <div id="existingNotice" style="display:none" class="status-bar warn">
+      <span id="existingText"></span>
+    </div>
+
+    <div id="formSection" style="display:none">
+      <div class="form-group">
+        <label>Part Number <span class="ai-badge">AI</span></label>
+        <div class="input-row">
+          <input type="text" id="f_partNumber" placeholder="ex: FLU4022 102 00158-LF" oninput="onPNInput()" />
+          <button id="unlockPNBtn" onclick="unlockPN()" style="display:none" class="unlock-btn">✎ Edit PN</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descriere <span class="ai-badge">AI</span></label>
+        <input type="text" id="f_descriere" placeholder="ex: RES 0E14 1% 0.5W" />
+      </div>
+      <div class="form-group">
+        <label>MFPN — Manufacturer Part Number <span class="ai-badge">AI</span></label>
+        <input type="text" id="f_mfpn" placeholder="ex: CRCW04020000Z0ED" />
+      </div>
+      <div class="form-group">
+        <label>LOT <span class="ai-badge">AI</span></label>
+        <input type="text" id="f_lot" placeholder="ex: BRP072626-2535-02995" />
+      </div>
+      <div class="form-group">
+        <label>M/S <span class="ai-badge">AI</span></label>
+        <input type="text" id="f_ms" placeholder="ex: MS3 - 168 Hours" oninput="onMSInput()" />
+      </div>
+      <div class="form-group">
+        <label>Data etichetă <span class="ai-badge">AI</span></label>
+        <input type="text" id="f_data" placeholder="ex: 30.03.2026" />
+      </div>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveRecord()">↗ Salvează în stoc</button>
+      <button class="btn btn-secondary" onclick="resetForm()">↺ Scanează altă etichetă</button>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div id="tab-search" class="container" style="display:none">
+    <div class="search-box">
+      <span class="search-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </span>
+      <input type="text" id="searchInput" placeholder="Caută PN, descriere, MFPN..." oninput="doSearch()" autocomplete="off" />
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- RECORDS -->
+  <div id="tab-records" class="container" style="display:none">
+    <div class="records-header">
+      <h2>STOC <span id="stockOwnerLabel"></span></h2>
+      <span class="records-count" id="recordsCount">0</span>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Toate</button>
+      <button class="filter-btn low-f" onclick="setFilter('low',this)">LOW</button>
+      <button class="filter-btn high-f" onclick="setFilter('high',this)">HIGH</button>
+      <button class="filter-btn" onclick="setFilter('expired',this)" style="color:var(--error)">⚠ Expirate</button>
+    </div>
+    <div id="recordsList"></div>
+  </div>
+
+  <!-- REPORT -->
+  <div id="tab-report" class="container" style="display:none">
+    <div class="records-header">
+      <h2>RAPORT MSD</h2>
+      <button onclick="exportReport()" style="padding:5px 12px;border-radius:6px;font-family:var(--mono);font-size:10px;cursor:pointer;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--accent)">↓ Export CSV</button>
+    </div>
+    <div id="reportContent"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="tab-admin" class="container" style="display:none">
+    <div class="records-header">
+      <h2>GESTIUNE UTILIZATORI</h2>
+      <button onclick="showAddUser()" style="padding:5px 12px;border-radius:6px;font-family:var(--mono);font-size:10px;cursor:pointer;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--accent)">+ Adaugă user</button>
+    </div>
+    <div id="usersList"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="container" style="display:none">
+    <div id="adminApiKey" class="settings-card" style="display:none">
+      <h3>// CLAUDE API KEY</h3>
+      <div class="form-group">
+        <label>API Key (Anthropic)</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." oninput="saveSettings()" />
+      </div>
+      <div class="settings-status">
+        <div class="dot" id="claudeDot" style="background:var(--warn)"></div>
+        <span id="claudeStatus" style="color:var(--warn)">Neconfigurat</span>
+      </div>
+    </div>
+    <div class="settings-card">
+      <h3>// SCHIMBĂ PAROLA</h3>
+      <div class="form-group">
+        <label>Parola veche</label>
+        <input type="password" id="oldPass" placeholder="••••••••" />
+      </div>
+      <div class="form-group">
+        <label>Parola nouă</label>
+        <input type="password" id="newPass" placeholder="••••••••" />
+      </div>
+      <div class="form-group">
+        <label>Confirmă parola nouă</label>
+        <input type="password" id="confirmPass" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" onclick="changePassword()">✓ Schimbă parola</button>
+    </div>
+    <div class="settings-card">
+      <h3>// EXPORT DATE</h3>
+      <button class="btn btn-secondary" onclick="exportCSV()">↓ Export CSV complet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL USER -->
+<div id="userModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h3 id="modalTitle">// ADAUGĂ USER</h3>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="m_username" placeholder="username" />
+    </div>
+    <div class="form-group">
+      <label>Nume complet</label>
+      <input type="text" id="m_fullname" placeholder="Ion Popescu" />
+    </div>
+    <div class="form-group">
+      <label>Parolă</label>
+      <input type="password" id="m_password" placeholder="••••••••" />
+    </div>
+    <div class="form-group">
+      <label>Rol</label>
+      <select id="m_role">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="modalSaveBtn" onclick="saveUser()">✓ Salvează</button>
+    <button class="btn btn-secondary" onclick="closeModal()">Anulează</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentUser = null;
+let records = [];
+let settings = JSON.parse(localStorage.getItem('smSettings') || '{}');
+let currentFilter = 'all';
+let editingPosition = null;
+let editingUserId = null;
+let searchTimer = null;
+
+// ═══════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════
+async function api(action, data = {}) {
+  const res = await fetch('/api/stock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...data })
+  });
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) { showLoginError('Completează toate câmpurile'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = '⏳ Se autentifică...';
+  const result = await api('login', { username, password });
+  btn.disabled = false; btn.textContent = '→ Autentificare';
+  if (result.error) { showLoginError(result.error); return; }
+  currentUser = result.user;
+  localStorage.setItem('smUser', JSON.stringify(currentUser));
+  initApp();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function doLogout() {
+  currentUser = null;
+  localStorage.removeItem('smUser');
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'block';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+async function changePassword() {
+  const oldPass = document.getElementById('oldPass').value;
+  const newPass = document.getElementById('newPass').value;
+  const confirmPass = document.getElementById('confirmPass').value;
+  if (!oldPass || !newPass || !confirmPass) { showToast('Completează toate câmpurile', 'error'); return; }
+  if (newPass !== confirmPass) { showToast('Parolele noi nu coincid', 'error'); return; }
+  if (newPass.length < 4) { showToast('Parola trebuie să aibă minim 4 caractere', 'error'); return; }
+  const result = await api('changePassword', { userId: currentUser.id, oldPassword: oldPass, newPassword: newPass });
+  if (result.error) { showToast(result.error, 'error'); return; }
+  showToast('✓ Parola schimbată', 'success');
+  document.getElementById('oldPass').value = '';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+window.onload = () => {
+  const saved = localStorage.getItem('smUser');
+  if (saved) { currentUser = JSON.parse(saved); initApp(); }
+  if (settings.claudeKey) { document.getElementById('claudeKey').value = settings.claudeKey; updateDot('claude', true); }
+};
+
+async function initApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'block';
+  document.getElementById('headerUser').textContent = currentUser.full_name || currentUser.username;
+  const rolePill = document.getElementById('headerRole');
+  rolePill.textContent = currentUser.role.toUpperCase();
+  rolePill.className = `role-pill ${currentUser.role}`;
+  if (currentUser.role === 'admin') {
+    document.querySelector('.admin-tab').style.display = 'block';
+    document.getElementById('stockOwnerLabel').textContent = '(GLOBAL)';
+    document.getElementById('adminApiKey').style.display = 'block';
+  } else {
+    document.querySelector('.admin-tab').style.display = 'none';
+    document.getElementById('stockOwnerLabel').textContent = `(${currentUser.full_name || currentUser.username})`;
+    document.getElementById('adminApiKey').style.display = 'none';
+  }
+  await loadRecords();
+  renderAlerts();
+}
+
+async function loadRecords() {
+  const result = await api('getStock', { userId: currentUser.id, role: currentUser.role });
+  records = result.stock || [];
+}
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+function showTab(tab) {
+  ['scan','search','records','report','admin','settings'].forEach(t =>
+    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none'
+  );
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['scan','search','records','report','admin','settings'][i]===tab);
+  });
+  if (tab==='admin' && currentUser.role!=='admin') { showToast('Acces interzis', 'error'); return; }
+  if (tab==='scan') renderAlerts();
+  if (tab==='report') renderReport();
+  if (tab==='admin' && currentUser.role==='admin') loadUsers();
+}
+
+// ═══════════════════════════════════════════════════════
+// MS LOGIC
+// ═══════════════════════════════════════════════════════
+function getMSLevel(ms) {
+  if (!ms) return 'low';
+  const v = ms.toUpperCase().trim();
+  if (!v || v==='N/A' || v==='-') return 'low';
+  if (/^MS0/.test(v)) return 'low';
+  if (/^MS1([^0-9]|$)/.test(v)) return 'low';
+  if (/^MS[2-6]/.test(v)) return 'high';
+  if (v.includes('MSY') || v.includes('EXACT TIME')) return 'high';
+  return 'low';
+}
+
+function parseExpiryHours(ms) {
+  if (!ms) return null;
+  const v = ms.toUpperCase();
+  if (v.includes('MSY') || v.includes('EXACT TIME')) return 30*24;
+  if (v.includes('168')) return 168;
+  if (v.includes('FOUR WEEK') || v.includes('4 WEEK')) return 28*24;
+  if (v.includes('ONE YEAR') || v.includes('1 YEAR')) return 365*24;
+  if (v.includes('TWO YEAR') || v.includes('2 YEAR')) return 2*365*24;
+  if (v.includes('SIX MONTH') || v.includes('6 MONTH')) return 180*24;
+  const hm = v.match(/(\d+)\s*HOUR/); if (hm) return parseInt(hm[1]);
+  const dm = v.match(/(\d+)\s*DAY/); if (dm) return parseInt(dm[1])*24;
+  return null;
+}
+
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.split('.');
+  if (parts.length === 3) {
+    const d = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+function getExpiryStatus(r) {
+  if (getMSLevel(r.ms) !== 'high') return null;
+  const hours = parseExpiryHours(r.ms);
+  if (!hours) return null;
+  const startDate = parseDate(r.data_eticheta) || new Date(r.registered_at);
+  const expiry = new Date(startDate.getTime() + hours*3600000);
+  const now = new Date();
+  const totalMs = expiry - startDate;
+  const remainMs = expiry - now;
+  const pct = Math.max(0, Math.min(100, (remainMs/totalMs)*100));
+  const remainHours = remainMs/3600000;
+  let color = 'green';
+  if (pct < 25 || remainHours < 24) color = 'yellow';
+  if (remainMs <= 0 || remainHours < 4) color = 'red';
+  return { expiry, remainMs, remainHours, pct, color };
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('ro-RO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtRemain(h) {
+  if (h <= 0) return 'EXPIRAT';
+  if (h < 1) return Math.round(h*60)+'min';
+  if (h < 24) return Math.round(h)+'h';
+  return Math.floor(h/24)+'z '+Math.round(h%24)+'h';
+}
+
+// ═══════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════
+function renderAlerts() {
+  const c = document.getElementById('alertsContainer');
+  const expired = [], expiring = [];
+  for (const r of records) {
+    const st = getExpiryStatus(r);
+    if (!st) continue;
+    if (st.color==='red') expired.push({r,st});
+    else if (st.color==='yellow') expiring.push({r,st});
+  }
+  let html = '';
+  if (expired.length) {
+    html += `<div class="alerts-banner"><h3>⚠ COMPONENTE EXPIRATE (${expired.length})</h3>`;
+    expired.forEach(({r}) => {
+      html += `<div class="alert-item">
+        <div class="pn">${r.part_number}</div>
+        <div class="pos">Poziția ${r.position} — ${r.username||'—'}</div>
+        <div class="msg">EXPIRAT — Predați componentele nefolosite la magazie!</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (expiring.length) {
+    html += `<div class="warn-banner"><h3>⏱ PE CALE SĂ EXPIRE (${expiring.length})</h3>`;
+    expiring.forEach(({r,st}) => {
+      html += `<div class="warn-item">
+        <div class="pn">${r.part_number} — Poz. ${r.position} (${r.username||'—'})</div>
+        <div class="msg">${fmtRemain(st.remainHours)} rămase</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  c.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE HANDLING
+// ═══════════════════════════════════════════════════════
+function handleFile(e) { const f=e.target.files[0]; if(f) processImage(f); }
+
+async function processImage(file) {
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const img = new Image();
+    img.onload = async () => {
+      const canvas = document.createElement('canvas');
+      const maxSize = 1024;
+      let w=img.width, h=img.height;
+      if (w>maxSize||h>maxSize) { if(w>h){h=Math.round(h*maxSize/w);w=maxSize;}else{w=Math.round(w*maxSize/h);h=maxSize;} }
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const compressed = canvas.toDataURL('image/jpeg',0.7);
+      const b64 = compressed.split(',')[1];
+      const uploadZone = document.getElementById('uploadZone');
+      if (uploadZone) {
+        uploadZone.innerHTML = `<img src="${compressed}" class="preview-img"/><p style="font-size:11px;color:var(--text2);font-family:var(--mono)">Analiză AI...</p>`;
+      }
+      const sb = document.getElementById('statusBar');
+      sb.style.display='flex'; sb.className='status-bar loading';
+      document.getElementById('statusText').textContent='Se extrag datele...';
+      try {
+        const parsed = await api('analyzeImage', { mime:'image/jpeg', base64:b64 });
+        if (parsed.error) throw new Error(parsed.error);
+        setFormValues(parsed);
+        sb.className='status-bar success';
+        document.getElementById('statusText').textContent='✓ Extragere completă — verifică și corectează';
+        document.getElementById('formSection').style.display='block';
+      } catch(err) {
+        sb.className='status-bar error';
+        document.getElementById('statusText').textContent='✗ Eroare AI — completează manual';
+        document.getElementById('formSection').style.display='block';
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setFormValues(p) {
+  document.getElementById('f_partNumber').value = p.partNumber||'';
+  document.getElementById('f_descriere').value = p.descriere||'';
+  document.getElementById('f_mfpn').value = p.mfpn||'';
+  document.getElementById('f_lot').value = p.lot||'';
+  document.getElementById('f_ms').value = p.ms||'';
+  document.getElementById('f_data').value = p.data||'';
+  ['f_partNumber','f_descriere','f_mfpn','f_lot','f_ms','f_data'].forEach(id => {
+    if (document.getElementById(id).value) document.getElementById(id).classList.add('ai-filled');
+  });
+  updateMSPreview();
+  checkExistingPN();
+}
+
+function openManual() {
+  document.getElementById('statusBar').style.display='none';
+  document.getElementById('msPreview').style.display='none';
+  document.getElementById('expiryPreview').style.display='none';
+  document.getElementById('existingNotice').style.display='none';
+  document.getElementById('formSection').style.display='block';
+  ['f_partNumber','f_descriere','f_mfpn','f_lot','f_ms','f_data'].forEach(id => {
+    const el=document.getElementById(id); el.value=''; el.classList.remove('ai-filled');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// FORM LIVE
+// ═══════════════════════════════════════════════════════
+function onMSInput() { updateMSPreview(); }
+function onPNInput() { if (!editingPosition) checkExistingPN(); }
+
+function updateMSPreview() {
+  const ms = document.getElementById('f_ms').value;
+  const level = getMSLevel(ms);
+  const prev = document.getElementById('msPreview');
+  prev.style.display='flex';
+  prev.className=`ms-preview ${level}`;
+  document.getElementById('msBadgeText').textContent = level==='high' ? 'HIGH MSD' : 'LOW MSD';
+  const exDiv = document.getElementById('expiryPreview');
+  if (level==='high') {
+    const h = parseExpiryHours(ms);
+    const dateStr = document.getElementById('f_data').value;
+    const startDate = parseDate(dateStr) || new Date();
+    if (h) {
+      const exp = new Date(startDate.getTime()+h*3600000);
+      document.getElementById('msPreviewText').textContent=`Expiră în ${h>=24?Math.round(h/24)+' zile':h+' ore'} de la data etichetei`;
+      document.getElementById('expiryPreviewDate').textContent=fmtDate(exp);
+      exDiv.style.display='block';
+    } else {
+      document.getElementById('msPreviewText').textContent='Durată neidentificată';
+      exDiv.style.display='none';
+    }
+  } else {
+    document.getElementById('msPreviewText').textContent='Fără restricție de expunere';
+    exDiv.style.display='none';
+  }
+}
+
+async function checkExistingPN() {
+  const pn = document.getElementById('f_partNumber').value.trim();
+  const notice = document.getElementById('existingNotice');
+  const txt = document.getElementById('existingText');
+  if (!pn) { notice.style.display='none'; return; }
+  const existing = records.find(r => r.part_number.trim().toUpperCase()===pn.toUpperCase() && r.user_id===currentUser.id);
+  notice.style.display='flex';
+  if (existing) {
+    notice.className='status-bar warn';
+    txt.textContent=`⚠ PN existent la poziția ${existing.position} — se va actualiza`;
+  } else {
+    const ms = document.getElementById('f_ms').value;
+    const level = getMSLevel(ms);
+    const posResult = await api('getNextPosition', { msLevel: level });
+    notice.className='status-bar success';
+    txt.textContent=`PN nou — va primi poziția ${posResult.position}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// SAVE
+// ═══════════════════════════════════════════════════════
+async function saveRecord() {
+  const pn = document.getElementById('f_partNumber').value.trim();
+  if (!pn) { showToast('Part Number obligatoriu', 'error'); return; }
+  const ms = document.getElementById('f_ms').value.trim();
+  const msLevel = getMSLevel(ms);
+
+  let position;
+  if (editingPosition !== null) {
+    position = editingPosition;
+  } else {
+    const existing = records.find(r => r.part_number.trim().toUpperCase()===pn.toUpperCase() && r.user_id===currentUser.id);
+    if (existing) {
+      position = existing.position;
+    } else {
+      const posResult = await api('getNextPosition', { msLevel });
+      position = posResult.position;
+    }
+  }
+
+  const record = {
+    position,
+    part_number: pn,
+    descriere: document.getElementById('f_descriere').value.trim(),
+    mfpn: document.getElementById('f_mfpn').value.trim(),
+    lot: document.getElementById('f_lot').value.trim(),
+    ms, ms_level: msLevel,
+    data_eticheta: document.getElementById('f_data').value.trim(),
+    registered_at: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled=true; btn.textContent='⏳ Se salvează...';
+  const result = await api('saveRecord', { record, userId: currentUser.id, username: currentUser.full_name || currentUser.username });
+  btn.disabled=false; btn.textContent = editingPosition ? '✓ Salvează modificările' : '↗ Salvează în stoc';
+
+  if (result.error) { showToast(result.error, 'error'); return; }
+  await loadRecords();
+  showToast(editingPosition ? `✓ Poziția ${position} actualizată` : `✓ Salvat — Poziția ${position}`, 'success');
+  resetForm();
+  renderAlerts();
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT & DELETE
+// ═══════════════════════════════════════════════════════
+function editRecord(position) {
+  const r = records.find(rec => rec.position===position);
+  if (!r) return;
+  editingPosition = position;
+  showTab('scan');
+  document.getElementById('statusBar').style.display='none';
+  document.getElementById('msPreview').style.display='none';
+  document.getElementById('expiryPreview').style.display='none';
+  document.getElementById('formSection').style.display='block';
+  document.getElementById('f_partNumber').value = r.part_number;
+  document.getElementById('f_descriere').value = r.descriere||'';
+  document.getElementById('f_mfpn').value = r.mfpn||'';
+  document.getElementById('f_lot').value = r.lot||'';
+  document.getElementById('f_ms').value = r.ms||'';
+  document.getElementById('f_data').value = r.data_eticheta||'';
+  document.getElementById('f_partNumber').readOnly = true;
+  document.getElementById('unlockPNBtn').style.display='block';
+  const notice = document.getElementById('existingNotice');
+  notice.style.display='flex'; notice.className='status-bar warn';
+  document.getElementById('existingText').textContent=`✎ Editezi poziția ${position}`;
+  document.getElementById('saveBtn').textContent='✓ Salvează modificările';
+  updateMSPreview();
+  showToast(`Editezi poziția ${position}`, 'success');
+}
+
+function unlockPN() {
+  document.getElementById('f_partNumber').readOnly=false;
+  document.getElementById('f_partNumber').style.opacity='1';
+  document.getElementById('unlockPNBtn').style.display='none';
+  document.getElementById('f_partNumber').focus();
+}
+
+async function deleteRecord(position) {
+  if (!confirm(`Ștergi poziția ${position}?`)) return;
+  await api('deleteRecord', { position });
+  await loadRecords();
+  renderRecords();
+  renderAlerts();
+  showToast(`✓ Poziția ${position} ștearsă`, 'success');
+}
+
+function resetForm() {
+  editingPosition = null;
+  document.getElementById('uploadZone') && (document.getElementById('uploadZone').remove());
+  const uploadArea = document.createElement('div');
+  uploadArea.id = 'uploadZone';
+  uploadArea.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:8px">
+      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
+        <input type="file" accept="image/*" capture="environment" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        <p style="font-size:11px;font-weight:500">📷 Fotografiază</p>
+      </div>
+      <div class="upload-zone" style="flex:1;padding:20px 10px;position:relative">
+        <input type="file" accept="image/*" onchange="handleFile(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" />
+        <div class="upload-icon" style="width:36px;height:36px;margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+        <p style="font-size:11px;font-weight:500">🖼 Galerie</p>
+      </div>
+    </div>`;
+  document.getElementById('tab-scan').insertBefore(uploadArea, document.getElementById('tab-scan').firstChild.nextSibling);
+  document.getElementById('statusBar').style.display='none';
+  document.getElementById('msPreview').style.display='none';
+  document.getElementById('expiryPreview').style.display='none';
+  document.getElementById('existingNotice').style.display='none';
+  document.getElementById('formSection').style.display='none';
+  document.getElementById('f_partNumber').readOnly=false;
+  document.getElementById('f_partNumber').style.opacity='1';
+  document.getElementById('saveBtn').textContent='↗ Salvează în stoc';
+  document.getElementById('unlockPNBtn').style.display='none';
+  ['f_partNumber','f_descriere','f_mfpn','f_lot','f_ms','f_data'].forEach(id=>{
+    const el=document.getElementById(id); el.value=''; el.classList.remove('ai-filled');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════
+function doSearch() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) { document.getElementById('searchResults').innerHTML=''; return; }
+  searchTimer = setTimeout(async () => {
+    const result = await api('search', { query: q });
+    const results = result.results || [];
+    const c = document.getElementById('searchResults');
+    if (!results.length) { c.innerHTML=`<div class="empty-state"><div class="icon">⌕</div><p>Niciun rezultat pentru "${q}"</p></div>`; return; }
+    c.innerHTML = results.map(r => {
+      const st = getExpiryStatus(r);
+      const level = getMSLevel(r.ms);
+      const isHigh = r.position && r.position.toString().startsWith('M');
+      let exHtml='';
+      if (st) {
+        exHtml=`<div class="expiry-bar-wrap" style="margin-top:8px">
+          <div class="expiry-label"><span>Exp: ${fmtDate(st.expiry)}</span><span class="expiry-status ${st.color}">${fmtRemain(st.remainHours)}</span></div>
+          <div class="expiry-bar"><div class="expiry-fill ${st.color}" style="width:${st.pct}%"></div></div>
+        </div>`;
+      }
+      return `<div class="search-result">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div class="pos-big ${isHigh?'high-pos':''}">${r.position}</div>
+          <div style="flex:1">
+            <div style="font-family:var(--mono);font-size:12px;font-weight:600;margin-bottom:2px">${r.part_number}</div>
+            <div style="font-size:11px;color:var(--text2)">${r.descriere||'—'}</div>
+            ${r.mfpn?`<div style="font-size:10px;color:var(--accent2);font-family:var(--mono);margin-top:2px">MFPN: ${r.mfpn}</div>`:''}
+          </div>
+          <span class="ms-pill ${level}">${level==='high'?'HIGH':'LOW'}</span>
+        </div>
+        <div style="font-size:10px;color:var(--warn);font-family:var(--mono);margin-bottom:6px">👤 ${r.username||'—'}</div>
+        <div class="record-meta">
+          <div class="tag">LOT <span>${r.lot||'—'}</span></div>
+          <div class="tag">M/S <span>${r.ms||'—'}</span></div>
+          <div class="tag">DATA <span>${r.data_eticheta||'—'}</span></div>
+        </div>
+        ${exHtml}
+      </div>`;
+    }).join('');
+  }, 400);
+}
+
+// ═══════════════════════════════════════════════════════
+// RECORDS
+// ═══════════════════════════════════════════════════════
+function setFilter(f,btn) {
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRecords();
+}
+
+function renderRecords() {
+  let filtered=records;
+  if (currentFilter==='low') filtered=records.filter(r=>getMSLevel(r.ms)==='low');
+  else if (currentFilter==='high') filtered=records.filter(r=>getMSLevel(r.ms)==='high');
+  else if (currentFilter==='expired') filtered=records.filter(r=>{ const st=getExpiryStatus(r); return st&&st.remainMs<=0; });
+  document.getElementById('recordsCount').textContent=filtered.length;
+  const list=document.getElementById('recordsList');
+  if (!filtered.length) { list.innerHTML=`<div class="empty-state"><div class="icon">▤</div><p>Nicio înregistrare.</p></div>`; return; }
+  list.innerHTML=filtered.sort((a,b) => {
+    const aNum = parseInt(a.position.toString().replace('M',''));
+    const bNum = parseInt(b.position.toString().replace('M',''));
+    const aHigh = a.position.toString().startsWith('M');
+    const bHigh = b.position.toString().startsWith('M');
+    if (aHigh !== bHigh) return aHigh ? 1 : -1;
+    return aNum - bNum;
+  }).map(r=>{
+    const st=getExpiryStatus(r);
+    const level=getMSLevel(r.ms);
+    const isHigh=r.position&&r.position.toString().startsWith('M');
+    let cls='record-card';
+    if (st) { if(st.remainMs<=0) cls+=' expired'; else if(st.color==='yellow') cls+=' expiring'; }
+    let exHtml='';
+    if (st) {
+      exHtml=`<div class="expiry-bar-wrap">
+        <div class="expiry-label"><span>Exp: ${fmtDate(st.expiry)}</span><span class="expiry-status ${st.color}">${fmtRemain(st.remainHours)}</span></div>
+        <div class="expiry-bar"><div class="expiry-fill ${st.color}" style="width:${st.pct}%"></div></div>
+      </div>`;
+    }
+    const canEdit = currentUser.role==='admin' || r.user_id===currentUser.id;
+    return `<div class="${cls}">
+      <div class="record-top">
+        <div class="record-pos ${isHigh?'high-pos':''}">${r.position}</div>
+        <div class="record-pn">${r.part_number}</div>
+        <span class="ms-pill ${level}">${level==='high'?'HIGH':'LOW'}</span>
+      </div>
+      <div class="record-desc">${r.descriere||'—'}</div>
+      ${r.mfpn?`<div style="font-size:9px;color:var(--accent2);font-family:var(--mono);padding-left:51px;margin-bottom:5px">MFPN: ${r.mfpn}</div>`:''}
+      ${currentUser.role==='admin'?`<div class="record-owner">👤 ${r.username||'—'}</div>`:''}
+      <div class="record-meta">
+        <div class="tag">LOT <span>${r.lot||'—'}</span></div>
+        <div class="tag">M/S <span>${r.ms||'—'}</span></div>
+        <div class="tag">DATA <span>${r.data_eticheta||'—'}</span></div>
+      </div>
+      ${exHtml}
+      ${canEdit?`<div class="record-actions">
+        <button class="btn-edit" onclick="editRecord('${r.position}')">✎ Editează</button>
+        <button class="btn-del" onclick="deleteRecord('${r.position}')">✕ Șterge</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// REPORT
+// ═══════════════════════════════════════════════════════
+async function renderReport() {
+  const result = await api('getReport');
+  const allHigh = result.stock || [];
+  const expired = [], valid = [];
+  for (const r of allHigh) {
+    const st = getExpiryStatus(r);
+    if (!st) continue;
+    if (st.remainMs <= 0) expired.push({r,st});
+    else valid.push({r,st});
+  }
+  valid.sort((a,b) => a.st.remainMs - b.st.remainMs);
+
+  let html = '';
+  if (expired.length) {
+    html += `<div class="report-section"><h3 class="expired">⚠ EXPIRATE (${expired.length})</h3>`;
+    expired.forEach(({r,st}) => {
+      const isHigh=r.position&&r.position.toString().startsWith('M');
+      html += `<div class="report-row">
+        <div class="report-pos ${isHigh?'high-pos':'low-pos'}">${r.position}</div>
+        <div style="flex:1"><div style="font-family:var(--mono);font-size:11px;font-weight:600">${r.part_number}</div><div style="font-size:10px;color:var(--text2)">${r.username||'—'}</div></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--error)">EXPIRAT</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (valid.length) {
+    html += `<div class="report-section"><h3 class="valid">✓ ÎN TERMEN (${valid.length})</h3>`;
+    valid.forEach(({r,st}) => {
+      const isHigh=r.position&&r.position.toString().startsWith('M');
+      html += `<div class="report-row">
+        <div class="report-pos ${isHigh?'high-pos':'low-pos'}">${r.position}</div>
+        <div style="flex:1"><div style="font-family:var(--mono);font-size:11px;font-weight:600">${r.part_number}</div><div style="font-size:10px;color:var(--text2)">${r.username||'—'} | Exp: ${fmtDate(st.expiry)}</div></div>
+        <div style="font-family:var(--mono);font-size:10px" class="expiry-status ${st.color}">${fmtRemain(st.remainHours)}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  if (!expired.length && !valid.length) html = `<div class="empty-state"><div class="icon">▦</div><p>Nicio componentă HIGH MSD.</p></div>`;
+  document.getElementById('reportContent').innerHTML = html;
+}
+
+function exportReport() {
+  const allHigh = records.filter(r => getMSLevel(r.ms)==='high');
+  const headers = ['Pozitie','Part Number','Descriere','MFPN','LOT','M/S','Data Eticheta','User','Data Expirare','Status','Timp Ramas'];
+  const rows = allHigh.map(r => {
+    const st = getExpiryStatus(r);
+    return [r.position, r.part_number, r.descriere, r.mfpn, r.lot, r.ms, r.data_eticheta, r.username, st?fmtDate(st.expiry):'', st?(st.remainMs<=0?'EXPIRAT':'IN TERMEN'):'', st?fmtRemain(st.remainHours):''];
+  });
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`raport_msd_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════════════════
+async function loadUsers() {
+  const result = await api('getUsers');
+  const users = result.users || [];
+  const list = document.getElementById('usersList');
+  if (!users.length) { list.innerHTML=`<div class="empty-state"><div class="icon">👤</div><p>Niciun utilizator.</p></div>`; return; }
+  list.innerHTML = users.map(u => `
+    <div class="admin-card">
+      <div class="user-row">
+        <div class="user-info">
+          <div class="uname">${u.username} <span class="ms-pill ${u.role==='admin'?'high':'low'}">${u.role.toUpperCase()}</span></div>
+          <div class="ufull">${u.full_name||'—'}</div>
+        </div>
+        <div class="admin-actions">
+          <button class="btn-sm edit" onclick="showEditUser('${u.id}','${u.username}','${u.full_name||''}','${u.role}')">✎</button>
+          ${u.id!==currentUser.id?`<button class="btn-sm del" onclick="deleteUser('${u.id}','${u.username}')">✕</button>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function showAddUser() {
+  editingUserId = null;
+  document.getElementById('modalTitle').textContent='// ADAUGĂ USER';
+  document.getElementById('m_username').value='';
+  document.getElementById('m_fullname').value='';
+  document.getElementById('m_password').value='';
+  document.getElementById('m_role').value='user';
+  document.getElementById('m_password').placeholder='••••••••';
+  document.getElementById('userModal').style.display='flex';
+}
+
+function showEditUser(id, username, fullname, role) {
+  editingUserId = id;
+  document.getElementById('modalTitle').textContent='// EDITEAZĂ USER';
+  document.getElementById('m_username').value=username;
+  document.getElementById('m_fullname').value=fullname;
+  document.getElementById('m_password').value='';
+  document.getElementById('m_password').placeholder='Lasă gol pentru a păstra parola';
+  document.getElementById('m_role').value=role;
+  document.getElementById('userModal').style.display='flex';
+}
+
+function closeModal() {
+  document.getElementById('userModal').style.display='none';
+  editingUserId = null;
+}
+
+async function saveUser() {
+  const username = document.getElementById('m_username').value.trim();
+  const fullname = document.getElementById('m_fullname').value.trim();
+  const password = document.getElementById('m_password').value;
+  const role = document.getElementById('m_role').value;
+  if (!username) { showToast('Username obligatoriu', 'error'); return; }
+  if (!editingUserId && !password) { showToast('Parola obligatorie pentru user nou', 'error'); return; }
+  let result;
+  if (editingUserId) {
+    result = await api('updateUser', { userId: editingUserId, username, full_name: fullname, role, password: password||undefined });
+  } else {
+    result = await api('createUser', { username, password, full_name: fullname, role });
+  }
+  if (result.error) { showToast(result.error, 'error'); return; }
+  closeModal();
+  await loadUsers();
+  showToast(editingUserId ? '✓ User actualizat' : '✓ User creat', 'success');
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`Ștergi userul "${username}" și toate datele lui?`)) return;
+  await api('deleteUser', { userId });
+  await loadUsers();
+  showToast(`✓ User ${username} șters`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function saveSettings() {
+  const key = document.getElementById('claudeKey').value.trim();
+  settings.claudeKey = key;
+  localStorage.setItem('smSettings', JSON.stringify(settings));
+  updateDot('claude', !!key);
+  if (key) api('saveConfig', { key: 'claude_api_key', value: key });
+}
+function updateDot(w,ok) {
+  const dot=document.getElementById(w+'Dot');
+  const s=document.getElementById(w+'Status');
+  dot.style.cssText=`background:${ok?'var(--accent)':'var(--warn)'};box-shadow:${ok?'0 0 6px var(--accent)':'none'}`;
+  s.style.color=ok?'var(--accent)':'var(--warn)';
+  s.textContent=ok?'Configurat ✓':'Neconfigurat';
+}
+
+function exportCSV() {
+  const headers = ['Pozitie','Part Number','Descriere','MFPN','LOT','M/S','MS Level','Data Eticheta','User','Data Expirare'];
+  const rows = records.map(r => {
+    const st=getExpiryStatus(r);
+    return [r.position,r.part_number,r.descriere,r.mfpn,r.lot,r.ms,getMSLevel(r.ms).toUpperCase(),r.data_eticheta,r.username,st?fmtDate(st.expiry):''];
+  });
+  const csv=[headers,...rows].map(row=>row.map(c=>`"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`stock_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg,type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+</script>
+</body>
+</html>
