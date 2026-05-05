@@ -803,12 +803,12 @@ async function checkExistingPN() {
   const pn = document.getElementById('f_partNumber').value.trim();
   const notice = document.getElementById('existingNotice');
   const txt = document.getElementById('existingText');
-  if (!pn) { notice.style.display='none'; return; }
-  const existing = records.find(r => r.part_number.trim().toUpperCase()===pn.toUpperCase() && r.user_id===currentUser.id);
+  if (!pn || editingPosition) { notice.style.display='none'; return; }
+  const existing = records.find(r => r.part_number.trim().toUpperCase()===pn.toUpperCase());
   notice.style.display='flex';
   if (existing) {
-    notice.className='status-bar warn';
-    txt.textContent=`⚠ PN existent la poziția ${existing.position} — se va actualiza`;
+    notice.className='status-bar error';
+    txt.textContent=`⚠ ATENȚIE: Acest PN există deja la poziția ${existing.position}! Salvarea va suprascrie acea poziție.`;
   } else {
     const ms = document.getElementById('f_ms').value;
     const level = getMSLevel(ms);
