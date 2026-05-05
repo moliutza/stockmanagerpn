@@ -895,7 +895,7 @@ function unlockPN() {
 
 async function deleteRecord(position) {
   if (!confirm(`Ștergi poziția ${position}?`)) return;
-  await api('deleteRecord', { position });
+  await api('deleteRecord', { position, userId: currentUser.id });
   await loadRecords();
   renderRecords();
   renderAlerts();
