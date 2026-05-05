@@ -114,9 +114,9 @@ export default async function handler(req, res) {
     }
 
     if (action === 'getNextPosition') {
-      const { msLevel } = body;
+      const { msLevel, userId } = body;
       const prefix = msLevel === 'high' ? 'M' : '';
-      const stock = await supabase('GET', 'stock?select=position&order=position');
+      const stock = await supabase('GET', `stock?select=position&user_id=eq.${userId}`);
       const positions = (stock || [])
         .map(r => r.position)
         .filter(p => msLevel === 'high' ? p.startsWith('M') : !p.startsWith('M'))
