@@ -346,6 +346,14 @@
       <h2>STOC <span id="stockOwnerLabel"></span></h2>
       <span class="records-count" id="recordsCount">0</span>
     </div>
+    <div id="adminStockSelector" style="display:none;margin-bottom:12px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <label style="font-family:var(--mono);font-size:10px;color:var(--text2);display:block;margin-bottom:6px">VERIFICĂ STOCUL:</label>
+        <select id="viewUserSelect" onchange="changeViewUser()" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none">
+          <option value="">— Gestiunea mea —</option>
+        </select>
+      </div>
+    </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="setFilter('all',this)">Toate</button>
       <button class="filter-btn low-f" onclick="setFilter('low',this)">LOW</button>
@@ -450,6 +458,7 @@ let currentFilter = 'all';
 let editingPosition = null;
 let editingUserId = null;
 let searchTimer = null;
+let viewUserId = null; // null = own records
 
 // ═══════════════════════════════════════════════════════
 // API
@@ -527,20 +536,44 @@ async function initApp() {
   rolePill.className = `role-pill ${currentUser.role}`;
   if (currentUser.role === 'admin') {
     document.querySelector('.admin-tab').style.display = 'block';
-    document.getElementById('stockOwnerLabel').textContent = '(GLOBAL)';
     document.getElementById('adminApiKey').style.display = 'block';
+    document.getElementById('adminStockSelector').style.display = 'block';
+    // Load users for dropdown
+    const result = await api('getUsers');
+    const select = document.getElementById('viewUserSelect');
+    (result.users || []).filter(u => u.id !== currentUser.id).forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.full_name || u.username;
+      select.appendChild(opt);
+    });
   } else {
     document.querySelector('.admin-tab').style.display = 'none';
-    document.getElementById('stockOwnerLabel').textContent = `(${currentUser.full_name || currentUser.username})`;
     document.getElementById('adminApiKey').style.display = 'none';
+    document.getElementById('adminStockSelector').style.display = 'none';
   }
+  document.getElementById('stockOwnerLabel').textContent = `(${currentUser.full_name || currentUser.username})`;
+  await loadRecords();
+  renderAlerts();
+}
   await loadRecords();
   renderAlerts();
 }
 
 async function loadRecords() {
-  const result = await api('getStock', { userId: currentUser.id, role: currentUser.role });
+  // Always load own records (viewUserId overrides for admin view)
+  const targetId = viewUserId || currentUser.id;
+  const result = await api('getStock', { userId: targetId, role: 'user' });
   records = result.stock || [];
+}
+
+async function changeViewUser() {
+  viewUserId = document.getElementById('viewUserSelect').value || null;
+  const select = document.getElementById('viewUserSelect');
+  const selectedText = select.options[select.selectedIndex].text;
+  document.getElementById('stockOwnerLabel').textContent = viewUserId ? `(${selectedText})` : `(${currentUser.full_name || currentUser.username})`;
+  await loadRecords();
+  renderRecords();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -907,6 +940,37 @@ function resetForm() {
 // ═══════════════════════════════════════════════════════
 // SEARCH
 // ═══════════════════════════════════════════════════════
+function renderSearchCard(r) {
+  const st = getExpiryStatus(r);
+  const level = getMSLevel(r.ms);
+  const isHigh = r.position && r.position.toString().startsWith('M');
+  let exHtml='';
+  if (st) {
+    exHtml=`<div class="expiry-bar-wrap" style="margin-top:8px">
+      <div class="expiry-label"><span>Exp: ${fmtDate(st.expiry)}</span><span class="expiry-status ${st.color}">${fmtRemain(st.remainHours)}</span></div>
+      <div class="expiry-bar"><div class="expiry-fill ${st.color}" style="width:${st.pct}%"></div></div>
+    </div>`;
+  }
+  return `<div class="search-result">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div class="pos-big ${isHigh?'high-pos':''}">${r.position}</div>
+      <div style="flex:1">
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;margin-bottom:2px">${r.part_number}</div>
+        <div style="font-size:11px;color:var(--text2)">${r.descriere||'—'}</div>
+        ${r.mfpn?`<div style="font-size:10px;color:var(--accent2);font-family:var(--mono);margin-top:2px">MFPN: ${r.mfpn}</div>`:''}
+      </div>
+      <span class="ms-pill ${level}">${level==='high'?'HIGH':'LOW'}</span>
+    </div>
+    <div style="font-size:10px;color:var(--warn);font-family:var(--mono);margin-bottom:6px">👤 ${r.username||'—'}</div>
+    <div class="record-meta">
+      <div class="tag">LOT <span>${r.lot||'—'}</span></div>
+      <div class="tag">M/S <span>${r.ms||'—'}</span></div>
+      <div class="tag">DATA <span>${r.data_eticheta||'—'}</span></div>
+    </div>
+    ${exHtml}
+  </div>`;
+}
+
 function doSearch() {
   clearTimeout(searchTimer);
   const q = document.getElementById('searchInput').value.trim();
@@ -916,36 +980,23 @@ function doSearch() {
     const results = result.results || [];
     const c = document.getElementById('searchResults');
     if (!results.length) { c.innerHTML=`<div class="empty-state"><div class="icon">⌕</div><p>Niciun rezultat pentru "${q}"</p></div>`; return; }
-    c.innerHTML = results.map(r => {
-      const st = getExpiryStatus(r);
-      const level = getMSLevel(r.ms);
-      const isHigh = r.position && r.position.toString().startsWith('M');
-      let exHtml='';
-      if (st) {
-        exHtml=`<div class="expiry-bar-wrap" style="margin-top:8px">
-          <div class="expiry-label"><span>Exp: ${fmtDate(st.expiry)}</span><span class="expiry-status ${st.color}">${fmtRemain(st.remainHours)}</span></div>
-          <div class="expiry-bar"><div class="expiry-fill ${st.color}" style="width:${st.pct}%"></div></div>
-        </div>`;
-      }
-      return `<div class="search-result">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <div class="pos-big ${isHigh?'high-pos':''}">${r.position}</div>
-          <div style="flex:1">
-            <div style="font-family:var(--mono);font-size:12px;font-weight:600;margin-bottom:2px">${r.part_number}</div>
-            <div style="font-size:11px;color:var(--text2)">${r.descriere||'—'}</div>
-            ${r.mfpn?`<div style="font-size:10px;color:var(--accent2);font-family:var(--mono);margin-top:2px">MFPN: ${r.mfpn}</div>`:''}
-          </div>
-          <span class="ms-pill ${level}">${level==='high'?'HIGH':'LOW'}</span>
-        </div>
-        <div style="font-size:10px;color:var(--warn);font-family:var(--mono);margin-bottom:6px">👤 ${r.username||'—'}</div>
-        <div class="record-meta">
-          <div class="tag">LOT <span>${r.lot||'—'}</span></div>
-          <div class="tag">M/S <span>${r.ms||'—'}</span></div>
-          <div class="tag">DATA <span>${r.data_eticheta||'—'}</span></div>
-        </div>
-        ${exHtml}
-      </div>`;
-    }).join('');
+    
+    const mine = results.filter(r => r.user_id === currentUser.id);
+    const others = results.filter(r => r.user_id !== currentUser.id);
+    
+    let html = '';
+    if (mine.length) {
+      html += `<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:8px;letter-spacing:0.5px">▶ ÎN GESTIUNEA TA (${mine.length})</div>`;
+      html += mine.map(renderSearchCard).join('');
+    }
+    if (others.length) {
+      html += `<div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin:12px 0 8px;letter-spacing:0.5px">▶ ÎN ALTE GESTIUNI (${others.length})</div>`;
+      html += others.map(renderSearchCard).join('');
+    }
+    if (!mine.length && !others.length) {
+      html = `<div class="empty-state"><div class="icon">⌕</div><p>Niciun rezultat pentru "${q}"</p></div>`;
+    }
+    c.innerHTML = html;
   }, 400);
 }
 
