@@ -96,11 +96,11 @@ export default async function handler(req, res) {
 
     if (action === 'saveRecord') {
       const { record, userId, username } = body;
-      // Check if position exists
-      const existing = await supabase('GET', `stock?position=eq.${encodeURIComponent(record.position)}`);
+      // Check if position exists for this user
+      const existing = await supabase('GET', `stock?position=eq.${encodeURIComponent(record.position)}&user_id=eq.${userId}`);
       const data = { ...record, user_id: userId, username, updated_at: new Date().toISOString() };
       if (existing && existing.length > 0) {
-        await supabase('PATCH', `stock?position=eq.${encodeURIComponent(record.position)}`, data);
+        await supabase('PATCH', `stock?position=eq.${encodeURIComponent(record.position)}&user_id=eq.${userId}`, data);
       } else {
         await supabase('POST', 'stock', data);
       }
@@ -108,8 +108,8 @@ export default async function handler(req, res) {
     }
 
     if (action === 'deleteRecord') {
-      const { position } = body;
-      await supabase('DELETE', `stock?position=eq.${encodeURIComponent(position)}`);
+      const { position, userId } = body;
+      await supabase('DELETE', `stock?position=eq.${encodeURIComponent(position)}&user_id=eq.${userId}`);
       return res.status(200).json({ success: true });
     }
 
