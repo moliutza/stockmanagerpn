@@ -17,6 +17,12 @@ async function supabase(method, path, body = null) {
   return res.json();
 }
 
+async function getClaudeKey() {
+  const config = await supabase('GET', 'config?key=eq.claude_api_key&select=value');
+  if (config && config.length > 0) return config[0].value;
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -75,10 +81,17 @@ export default async function handler(req, res) {
     // ── STOCK ─────────────────────────────────────────
     if (action === 'getStock') {
       const { userId, role } = body;
-      let path = 'stock?select=*&order=position';
+      let path = 'stock?select=*';
       if (role !== 'admin') path += `&user_id=eq.${userId}`;
       const stock = await supabase('GET', path);
-      return res.status(200).json({ stock });
+      // Sort numerically: LOW first (1,2,3...) then HIGH (M1,M2...)
+      const sorted = (stock||[]).sort((a,b) => {
+        const aH = a.position.toString().startsWith('M');
+        const bH = b.position.toString().startsWith('M');
+        if (aH !== bH) return aH ? 1 : -1;
+        return parseInt(a.position.toString().replace('M','')) - parseInt(b.position.toString().replace('M',''));
+      });
+      return res.status(200).json({ stock: sorted });
     }
 
     if (action === 'saveRecord') {
@@ -127,9 +140,22 @@ export default async function handler(req, res) {
       return res.status(200).json({ stock });
     }
 
+    if (action === 'saveConfig') {
+      const { key, value } = body;
+      const existing = await supabase('GET', `config?key=eq.${key}`);
+      if (existing && existing.length > 0) {
+        await supabase('PATCH', `config?key=eq.${key}`, { value });
+      } else {
+        await supabase('POST', 'config', { key, value });
+      }
+      return res.status(200).json({ success: true });
+    }
+
     // ── CLAUDE AI ─────────────────────────────────────
     if (action === 'analyzeImage') {
-      const { apiKey, mime, base64 } = body;
+      const { mime, base64 } = body;
+      const apiKey = body.apiKey || await getClaudeKey();
+      if (!apiKey) return res.status(200).json({ error: 'API key neconfigurat de admin' });
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
