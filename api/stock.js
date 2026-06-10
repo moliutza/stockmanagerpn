@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'https://vhmpwqezzssxyaexmsaz.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_moJ2s7yqKplEtQA6xYskxw_BhN2-Ewo';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function supabase(method, path, body = null) {
   const opts = {
@@ -84,7 +84,6 @@ export default async function handler(req, res) {
       let path = 'stock?select=*';
       if (role !== 'admin') path += `&user_id=eq.${userId}`;
       const stock = await supabase('GET', path);
-      // Sort numerically: LOW first (1,2,3...) then HIGH (M1,M2...)
       const sorted = (stock||[]).sort((a,b) => {
         const aH = a.position.toString().startsWith('M');
         const bH = b.position.toString().startsWith('M');
@@ -96,7 +95,6 @@ export default async function handler(req, res) {
 
     if (action === 'saveRecord') {
       const { record, userId, username } = body;
-      // Check if position exists for this user
       const existing = await supabase('GET', `stock?position=eq.${encodeURIComponent(record.position)}&user_id=eq.${userId}`);
       const data = { ...record, user_id: userId, username, updated_at: new Date().toISOString() };
       if (existing && existing.length > 0) {
@@ -130,9 +128,19 @@ export default async function handler(req, res) {
 
     if (action === 'search') {
       const { query } = body;
-      const q = encodeURIComponent(`%${query}%`);
-      const stock = await supabase('GET', `stock?or=(part_number.ilike.${q},descriere.ilike.${q},mfpn.ilike.${q})&select=*&order=position`);
-      return res.status(200).json({ results: stock });
+      const q = `%${query}%`;
+      const [byPN, byDesc, byMFPN] = await Promise.all([
+        supabase('GET', `stock?part_number=ilike.${encodeURIComponent(q)}&select=*`),
+        supabase('GET', `stock?descriere=ilike.${encodeURIComponent(q)}&select=*`),
+        supabase('GET', `stock?mfpn=ilike.${encodeURIComponent(q)}&select=*`)
+      ]);
+      const seen = new Set();
+      const results = [...(byPN||[]), ...(byDesc||[]), ...(byMFPN||[])].filter(r => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
+      return res.status(200).json({ results });
     }
 
     if (action === 'getReport') {
